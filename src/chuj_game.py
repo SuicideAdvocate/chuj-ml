@@ -29,7 +29,7 @@ class Card:
         self.index = index
 
 
-class Hand(object):
+class Hand:
     size = 8
 
     def __init__(self):
@@ -72,13 +72,13 @@ class Deck:
         return hands
 
 
-class Action(object):
+class Action:
     def __init__(self, card: Card, player: Player):
         self.card = card
         self.player = player
 
 
-class Play(object):
+class Play:
     size = 4
 
     def __init__(self):
@@ -103,7 +103,7 @@ class Play(object):
                 taker_action.player += self.score
 
 
-class Round(object):
+class Round:
     size = 8
 
     def __init__(self):
@@ -122,7 +122,7 @@ class Round(object):
             self.is_done = True
 
 
-class Player(object):
+class Player:
     def __init__(self):
         self.hand = Hand()
         self.score = 0
