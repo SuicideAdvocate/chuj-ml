@@ -107,7 +107,7 @@ class Round:
     size = 8
 
     def __init__(self):
-        self.plays = numpy.empty(1, dtype=Play)
+        self.plays = numpy.full(1, Play())
         self.played_cards = numpy.empty(0, dtype=Card)
         self.is_done = False
 
@@ -137,7 +137,7 @@ class Game:
     def __init__(self):
         self.deck = Deck()
         self.players = numpy.full(4, Player())
-        self.rounds = numpy.empty(1, dtype=Round)
+        self.rounds = numpy.full(1, Round())
         self.current_player = self.players[0]
         self.is_done = False
 
