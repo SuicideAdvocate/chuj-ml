@@ -93,7 +93,7 @@ class Play:
         numpy.append(self.actions, [Action(card, player)])
         self.is_done = len(self.actions) == self.size
 
-        if len(self.actions) is Play.size:
+        if self.is_done:
             self.score = sum(action.card.points for action in self.actions)
             possible_taker_actions = [action for action in self.actions if
                                       action.card.suite == self.actions[0].card.suite]
@@ -107,19 +107,19 @@ class Round:
     size = 8
 
     def __init__(self):
-        self.plays = numpy.empty(0, dtype=Play)
+        self.plays = numpy.empty(1, dtype=Play)
         self.played_cards = numpy.empty(0, dtype=Card)
         self.is_done = False
 
     def play_card(self, card: Card, player: Player):
-        if len(self.plays) == 0 or self.plays[-1].is_done:
-            numpy.append(self.plays, [Play()])
-
         self.plays[-1].play_card(card, player)
         numpy.append(self.played_cards, [card])
 
         if len(self.played_cards) == Deck.size:
             self.is_done = True
+
+        if not self.is_done and self.plays[-1].is_done:
+            numpy.append(self.plays, [Play()])
 
 
 class Player:
@@ -132,18 +132,21 @@ class Player:
 
 
 class Game:
+    max_points = 175
+
     def __init__(self):
         self.deck = Deck()
         self.players = numpy.full(4, Player())
-        self.rounds = numpy.empty(0, dtype=Round)
+        self.rounds = numpy.empty(1, dtype=Round)
         self.current_player = self.players[0]
         self.is_done = False
 
     def play_card(self, card: Card, player: Player):
-        if len(self.rounds) == 0 or self.rounds[-1].is_done:
-            numpy.append(self.rounds, [Round()])
         self.rounds[-1].play_card(card, player)
         self.is_done = any(player.score > 100 for player in self.players)
+
+        if not self.is_done and self.rounds[-1].is_done:
+            numpy.append(self.rounds, [Round()])
 
     def get_next_player(self):
         if len(self.rounds) == 0:
