@@ -2,10 +2,11 @@ import typing
 
 import numpy
 
-from src.game.chuj_card import ChujCard
-from src.game.chuj_deck import ChujDeck
-from src.game.chuj_play import ChujPlay
-from src.game.chuj_player import ChujPlayer
+
+from game.chuj_card import ChujCard
+from game.chuj_deck import ChujDeck
+from game.chuj_play import ChujPlay
+from game.chuj_player import ChujPlayer
 
 
 class ChujRound:
@@ -58,11 +59,17 @@ class ChujRound:
                 player.points += self.player_points[player]
 
     def get_played_cards_padded_vector(self):
-        return numpy.pad(numpy.array(card.index for card in self.played_cards),
-                         (0, ChujDeck.size - len(self.played_cards)))
+        return numpy.pad(
+            numpy.array([card.index for card in self.played_cards], dtype=numpy.int16),
+            (0, ChujDeck.size - len(self.played_cards)),
+        )
 
     def get_taken_cards_padded_vector(self, player: ChujPlayer):
         if player not in self.player_points:
             return numpy.full(ChujDeck.size, 0)
-        return numpy.pad([card.index for card in self.player_cards[player]],
-                         (0, ChujDeck.size - len(self.player_cards[player])))
+        return numpy.pad(
+            numpy.array(
+                [card.index for card in self.player_cards[player]], dtype=numpy.int16
+            ),
+            (0, ChujDeck.size - len(self.player_cards[player])),
+        )

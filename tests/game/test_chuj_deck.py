@@ -2,7 +2,7 @@ import unittest
 
 import numpy
 
-from src.game.chuj_deck import ChujDeck
+from game.chuj_deck import ChujDeck
 
 
 class TestChujDeck(unittest.TestCase):

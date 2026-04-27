@@ -2,7 +2,7 @@ from operator import contains
 
 import numpy
 
-from src.game.chuj_card import ChujCard
+from game.chuj_card import ChujCard
 
 
 class ChujHand:
@@ -18,8 +18,13 @@ class ChujHand:
         # remove the card from the hand by removing it from the array
         self.cards.remove(card)
 
+    def get_card_indexes(self):
+        return [card.index for card in self.cards]
+
     def get_cards_padded_vector(self):
         # select index from each of the cards in the hand
-        card_indexes = numpy.array(list(card.index for card in self.cards))
+        card_indexes = numpy.array(
+            list(card.index for card in self.cards), dtype=numpy.int16
+        )
         # pad the vector to the hand size with zeros to represent the absence of cards
         return numpy.pad(card_indexes, (0, ChujHand.size - len(self.cards)))

@@ -1,7 +1,7 @@
 import numpy
 
-from src.game.chuj_card import ChujCard
-from src.game.chuj_player import ChujPlayer
+from game.chuj_card import ChujCard
+from game.chuj_player import ChujPlayer
 
 
 class ChujPlay:
@@ -33,12 +33,16 @@ class ChujPlay:
             self.taker = player
             self.taker_card = card
         # if there are cards already, taker is changes if current card is the same suite as first card and has higher value
-        elif (card.suite == self.played_cards[0].suite
-              and self.taker_card
-              and card.value.value > self.taker_card.value.value):
+        elif (
+            card.suite == self.played_cards[0].suite
+            and self.taker_card
+            and card.value.value > self.taker_card.value.value
+        ):
             self.taker = player
             self.taker_card = card
 
     def get_played_cards_padded_vector(self):
-        return numpy.pad(numpy.array(card.index for card in self.played_cards),
-                         (0, ChujPlay.size - len(self.played_cards)))
+        return numpy.pad(
+            numpy.array([card.index for card in self.played_cards], dtype=numpy.int16),
+            (0, ChujPlay.size - len(self.played_cards)),
+        )

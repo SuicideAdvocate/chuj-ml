@@ -1,5 +1,5 @@
-from src.game.chuj_card import ChujCard
-from src.game.chuj_hand import ChujHand
+from game.chuj_card import ChujCard
+from game.chuj_hand import ChujHand
 
 
 class ChujPlayer:

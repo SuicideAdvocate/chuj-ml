@@ -1,15 +1,15 @@
 import numpy
 
-from src.game.chuj_card import ChujCard, ChujCardSuite, ChujCardValue
-from src.game.chuj_hand import ChujHand
-from src.game.chuj_play import ChujPlay
+from game.chuj_card import ChujCard, ChujCardSuite, ChujCardValue
+from game.chuj_hand import ChujHand
+from game.chuj_play import ChujPlay
 
 
 class ChujDeck:
     size = 32
 
     def __init__(self):
-        self.cards:list[ChujCard] = []
+        self.cards: list[ChujCard] = []
         index = 0
         for suite in ChujCardSuite:
             for value in ChujCardValue:
@@ -34,7 +34,7 @@ class ChujDeck:
         offset = 0
         for hand in hands:
             # set cards for hand from offset to the hand size
-            hand.cards = self.cards[offset:offset + ChujHand.size]
+            hand.cards = self.cards[offset : offset + ChujHand.size]
             # move the offset for the next hand
             offset += ChujHand.size
         return hands

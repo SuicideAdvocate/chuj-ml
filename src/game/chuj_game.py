@@ -1,10 +1,10 @@
 import numpy
 
-from src.game.chuj_card import ChujCard
-from src.game.chuj_deck import ChujDeck
-from src.game.chuj_play import ChujPlay
-from src.game.chuj_player import ChujPlayer
-from src.game.chuj_round import ChujRound
+from game.chuj_card import ChujCard
+from game.chuj_deck import ChujDeck
+from game.chuj_play import ChujPlay
+from game.chuj_player import ChujPlayer
+from game.chuj_round import ChujRound
 
 
 class ChujGame:
@@ -28,7 +28,14 @@ class ChujGame:
                 self.players[i].hand = hands[i]
 
     def get_opponent_scores_vector(self, player: ChujPlayer):
-        return numpy.array([game_player.points for game_player in self.players if game_player != player])
+        return numpy.array(
+            [
+                game_player.points
+                for game_player in self.players
+                if game_player != player
+            ],
+            dtype=numpy.int16,
+        )
 
     def get_next_player(self):
         if len(self.rounds) == 1:
