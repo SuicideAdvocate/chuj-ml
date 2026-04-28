@@ -1,13 +1,13 @@
 import numpy
+import numpy.typing
 
-from game.chuj_card import ChujCard
+from game.chuj_constants import ChujConstants
 from game.chuj_player import ChujPlayer
+from game.chuj_card import ChujCard
 
 
 class ChujPlay:
-    size = 4
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_done = False
         self.points = 0
         self.taker: ChujPlayer | None = None
@@ -15,24 +15,25 @@ class ChujPlay:
         self.played_cards: list[ChujCard] = []
         self.players: list[ChujPlayer] = []
 
-    def play_card(self, card: ChujCard, player: ChujPlayer):
-        # play the card from the hand of the player
+    def play_card(self, card: ChujCard, player: ChujPlayer) -> None:
+        if self.is_done:
+            raise ValueError("Play is already done")
+
+        if any(p is player for p in self.players):
+            raise ValueError(f"Player {player} has already played in this play")
+
+        if any(c is card for c in self.played_cards):
+            raise ValueError(f"Card {card} has already been played in this play")
+
         player.play_card(card)
-        # add the card to the list of the cards in the play
-        # state of the play is observed when making a choice
         self.played_cards.append(card)
-        # add the player to the list. this is used to determine the next player
         self.players.append(player)
-        # if the number of actions in the play is equal to the size of the play, then the play is done
-        self.is_done = len(self.played_cards) == self.size
-        # update the play score
+        self.is_done = len(self.played_cards) == ChujConstants.player_count
         self.points += card.points
 
-        # if there are no played cards, the player is the taker of the play
         if len(self.played_cards) == 1:
             self.taker = player
             self.taker_card = card
-        # if there are cards already, taker is changes if current card is the same suite as first card and has higher value
         elif (
             card.suite == self.played_cards[0].suite
             and self.taker_card
@@ -41,8 +42,8 @@ class ChujPlay:
             self.taker = player
             self.taker_card = card
 
-    def get_played_cards_padded_vector(self):
+    def get_played_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
         return numpy.pad(
-            numpy.array([card.index for card in self.played_cards], dtype=numpy.int16),
-            (0, ChujPlay.size - len(self.played_cards)),
+            numpy.array([card.index for card in self.played_cards], dtype=numpy.int8),
+            (0, ChujConstants.player_count - len(self.played_cards)),
         )

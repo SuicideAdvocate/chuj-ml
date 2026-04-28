@@ -4,11 +4,11 @@ from typing import Dict
 import gymnasium
 import numpy
 import pettingzoo
+import pettingzoo.utils
 
-from game.chuj_deck import ChujDeck
 from game.chuj_game import ChujGame
-from game.chuj_play import ChujPlay
 from game.chuj_player import ChujPlayer
+from game.chuj_constants import ChujConstants
 
 
 class ChujGym(pettingzoo.AECEnv):
@@ -19,22 +19,23 @@ class ChujGym(pettingzoo.AECEnv):
     def __init__(self, render_mode=None):
         super().__init__()
 
-        self.possible_agents = ["agent_" + str(i) for i in range(ChujPlay.size)]
+        self.possible_agents = [
+            "agent_" + str(i) for i in range(ChujConstants.player_count)
+        ]
         self.agents: list[str] = []
 
-        self.game: ChujGame = ChujGame()
+        self.game: ChujGame | None = None
         self.agent_to_player_map: Dict[str, ChujPlayer] = {}
         self.player_to_agent_map: Dict[ChujPlayer, str] = {}
         self.iteration = 0
         self.render_mode = render_mode
-        self.infos = {agent: {} for agent in self.agents}
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
         return gymnasium.spaces.Dict(
             {
                 "player_score": gymnasium.spaces.Discrete(
-                    ChujGame.max_points + 1, dtype=numpy.int16
+                    ChujConstants.max_points + 1, dtype=numpy.int16
                 ),
                 # "opponent_scores": gymnasium.spaces.MultiDiscrete(
                 #     [ChujGame.max_points + 1] * (ChujPlay.size - 1),
@@ -57,7 +58,7 @@ class ChujGym(pettingzoo.AECEnv):
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return gymnasium.spaces.Discrete(ChujDeck.size, start=1)
+        return gymnasium.spaces.Discrete(ChujConstants.deck_size, start=1)
 
     def render(self):
         # TODO render the env
@@ -82,12 +83,15 @@ class ChujGym(pettingzoo.AECEnv):
         if seed is not None:
             numpy.random.seed(seed)
 
-        self.game = ChujGame()
         self.iteration = 0
 
         self.agents = self.possible_agents.copy()
+        self.game = ChujGame(self.agents)
         self.agent_to_player_map = {
-            agent: self.game.players[i] for i, agent in enumerate(self.agents)
+            agent: player
+            for player in self.game.players
+            for agent in self.agents
+            if player.id == agent
         }
         self.player_to_agent_map = {
             player: agent for agent, player in self.agent_to_player_map.items()
@@ -102,65 +106,64 @@ class ChujGym(pettingzoo.AECEnv):
         self.set_next_agent()
         self.update_action_masks()
 
-    def update_action_masks(self):
-        for agent in self.agents:
-            player = self.agent_to_player_map[agent]
-            mask = numpy.full(ChujDeck.size, 0, dtype=numpy.int8)
-            for index in player.hand.get_card_indexes():
-                mask[index - 1] = 1
-            self.infos[agent] = {"action_mask": mask}
-
     def step(self, action):
-        # increment the iteration to keep track of the current step in the game
         self.iteration += 1
 
-        # select the next player
-        next_player = self.game.get_next_player()
-
-        # play a card based on the next player decision to move the environment
-        card_to_play = [card for card in self.game.deck.cards][0]
-        self.game.play_card(card_to_play, next_player)
+        player = self.agent_to_player_map[self.agent_selection]
+        card_to_play = [card for card in self.game.deck.cards if card.index == action][
+            0
+        ]
+        self.game.play_card(card_to_play, player)
 
         self.update_action_masks()
         self.set_next_agent()
 
-        # if there are 4 iterations, it means all agents have had a turn and we can distribute rewards
-        if self.iteration == 4:
-            # reset the iteration for the next round of steps
-            self.iteration = 0
+        self.terminations = {agent: self.game.is_done for agent in self.agents}
 
-            # assign rewards to the players
-            if self.game.is_done:
-                # if the game is done, assign rewards based on the final scores
-                # losers get negative rewards, while the survivors get reward based on how far from 100 points they are
-                for player in self.game.players:
-                    agent = self.player_to_agent_map[player]
-                    self.rewards[agent] = (
-                        ChujGym.loss_points
-                        if player.points > 100
-                        else 100 - player.points
-                    )
-            elif self.game.rounds[-1].is_empty:
-                # if the latest round is empty, we one round before that has just been completed
-                # we reward players with points, they have avoided
-                for player in self.game.players:
-                    agent = self.player_to_agent_map[player]
-                    self.rewards[agent] = (
-                        self.game.rounds[-2].points
-                        - self.game.rounds[-2].player_points[player]
-                    )
-            else:
-                # there is a round happening so we reward players for avoiding points
-                for player in self.game.players:
-                    agent = self.player_to_agent_map[player]
-                    if self.game.rounds[-1].plays[-1].taker is player:
-                        self.rewards[agent] = 0
-                    else:
-                        self.rewards[agent] = self.game.rounds[-1].plays[-1].points
+        if self.iteration % 4 == 0:
+            for agent in self.agents:
+                self.rewards[agent] = 5
+            # if self.game.is_done:
+            #     for player in self.game.players:
+            #         agent = self.player_to_agent_map[player]
+            #         self.rewards[agent] = (
+            #             ChujGym.loss_points
+            #             if player.points > 100
+            #             else 100 - player.points
+            #         )
+            # elif self.game.rounds[-1].is_done:
+            #     # if the latest round is done, we reward players based on the points they have dealt
+            #     for player in self.game.players:
+            #         agent = self.player_to_agent_map[player]
+            #         sum_of_opponent_points = sum(
+            #             points
+            #             for other_player, points in self.game.rounds[-1].player_points
+            #             if other_player != player
+            #         )
+            #         self.rewards[agent] = sum_of_opponent_points
+            # else:
+            #     for player in self.game.players:
+            #         agent = self.player_to_agent_map[player]
+            #         if self.game.rounds[-1].plays[-1].taker is player:
+            #             self.rewards[agent] = -self.game.rounds[-1].plays[-1].points
+            #         else:
+            #             self.rewards[agent] = 0
+
+        self._accumulate_rewards()
 
     def set_next_agent(self):
         next_player = self.game.get_next_player()
-        self.agent_selection = self.player_to_agent_map[next_player]
+        first_agent = self.player_to_agent_map[next_player]
+        idx = self.agents.index(first_agent)
+        shifted_agents = self.agents[idx:] + self.agents[:idx]
+        self._agent_selector = pettingzoo.utils.AgentSelector(shifted_agents)
+        self.agent_selection = self._agent_selector.next()
+
+    def update_action_masks(self):
+        for agent in self.agents:
+            player = self.agent_to_player_map[agent]
+            mask = player.hand.get_cards_mask_padded_vector()
+            self.infos[agent] = {"action_mask": mask}
 
 
 def env():

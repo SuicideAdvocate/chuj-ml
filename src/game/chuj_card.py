@@ -20,10 +20,15 @@ class ChujCardValue(enum.Enum):
 
 
 class ChujCard:
-    def __init__(
-        self, suite: ChujCardSuite, value: ChujCardValue, points: int, index: int
-    ):
+    def __init__(self, suite: ChujCardSuite, value: ChujCardValue, index: int):
         self.suite = suite
         self.value = value
-        self.points = points
         self.index = index
+        _special = {
+            (ChujCardSuite.ACORNS, ChujCardValue.UBER): 4,
+            (ChujCardSuite.LEAVES, ChujCardValue.UBER): 8,
+        }
+        self.points = 1 if suite is ChujCardSuite.HEARTS else _special.get((suite, value), 0)
+
+    def __str__(self) -> str:
+        return f"{self.suite.name} {self.value.name}"
