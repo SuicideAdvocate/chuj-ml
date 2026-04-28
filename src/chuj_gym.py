@@ -27,8 +27,8 @@ class ChujGym(pettingzoo.AECEnv):
         self.game: ChujGame | None = None
         self.agent_to_player_map: Dict[str, ChujPlayer] = {}
         self.player_to_agent_map: Dict[ChujPlayer, str] = {}
-        self.iteration = 0
         self.render_mode = render_mode
+        self._agent_selector: pettingzoo.utils.AgentSelector | None = None
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
@@ -103,12 +103,12 @@ class ChujGym(pettingzoo.AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
 
-        self.set_next_agent()
+        self.update_agent_selector()
+        self.agent_selection = self._agent_selector.next()
         self.update_action_masks()
 
     def step(self, action):
-        self.iteration += 1
-
+        self._cumulative_rewards[self.agent_selection] = 0
         player = self.agent_to_player_map[self.agent_selection]
         card_to_play = [card for card in self.game.deck.cards if card.index == action][
             0
@@ -116,13 +116,15 @@ class ChujGym(pettingzoo.AECEnv):
         self.game.play_card(card_to_play, player)
 
         self.update_action_masks()
-        self.set_next_agent()
 
         self.terminations = {agent: self.game.is_done for agent in self.agents}
 
-        if self.iteration % 4 == 0:
+        if self._agent_selector.is_last():
+            self.update_agent_selector()
             for agent in self.agents:
                 self.rewards[agent] = 5
+        else:
+            self._clear_rewards()
             # if self.game.is_done:
             #     for player in self.game.players:
             #         agent = self.player_to_agent_map[player]
@@ -149,15 +151,15 @@ class ChujGym(pettingzoo.AECEnv):
             #         else:
             #             self.rewards[agent] = 0
 
+        self.agent_selection = self._agent_selector.next()
         self._accumulate_rewards()
 
-    def set_next_agent(self):
+    def update_agent_selector(self):
         next_player = self.game.get_next_player()
         first_agent = self.player_to_agent_map[next_player]
         idx = self.agents.index(first_agent)
         shifted_agents = self.agents[idx:] + self.agents[:idx]
         self._agent_selector = pettingzoo.utils.AgentSelector(shifted_agents)
-        self.agent_selection = self._agent_selector.next()
 
     def update_action_masks(self):
         for agent in self.agents:

@@ -17,6 +17,9 @@ class ChujGame:
         self.is_done = False
         self.players = [ChujPlayer(player_id) for player_id in players]
         self.rounds: list[ChujRound] = []
+        self.deal_cards()
+
+    def deal_cards(self) -> None:
         for player, hand in zip(self.players, self.deck.deal_hands()):
             player.hand = hand
 
@@ -34,8 +37,7 @@ class ChujGame:
         )
 
         if self.rounds[-1].is_done and not self.is_done:
-            for player, hand in zip(self.players, self.deck.deal_hands()):
-                player.hand = hand
+            self.deal_cards()
 
     def get_opponent_scores_vector(
         self, player: ChujPlayer

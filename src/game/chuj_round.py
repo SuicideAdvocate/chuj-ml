@@ -18,7 +18,7 @@ class ChujRound:
         self.is_done = False
         self.player_points: typing.Dict[ChujPlayer, int] = {}
         self.player_cards: typing.Dict[ChujPlayer, list[ChujCard]] = {}
-        self.points: int = 20
+        self.points: int = 0
 
     def play_card(self, card: ChujCard, player: ChujPlayer) -> None:
         if self.is_done:
@@ -37,6 +37,7 @@ class ChujRound:
             self.is_done = True
 
         if self.plays[-1].is_done:
+            self.points += self.plays[-1].points
             if self.plays[-1].taker:
                 if self.plays[-1].taker not in self.player_points:
                     self.player_points[self.plays[-1].taker] = 0
@@ -46,8 +47,11 @@ class ChujRound:
                 self.player_cards[self.plays[-1].taker] += self.plays[-1].played_cards
 
         if self.is_done:
-            if len(self.player_points) == 1:
-                taker = list(self.player_points)[0]
+            players_with_points = [
+                p for p, pts in self.player_points.items() if pts > 0
+            ]
+            if len(players_with_points) == 1:
+                taker = players_with_points[0]
                 self.player_points[taker] = 0
                 for player in self.players:
                     if player is not taker:
@@ -57,19 +61,19 @@ class ChujRound:
                 player.points += self.player_points[player]
 
     def get_played_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
-        card_indexes = [card.index for card in self.played_cards]
         return numpy.pad(
-            numpy.array(card_indexes, dtype=numpy.int8),
-            (0, ChujConstants.deck_size - len(card_indexes)),
+            numpy.array([card.index for card in self.played_cards], dtype=numpy.int8),
+            (0, ChujConstants.deck_size - len(self.played_cards)),
         )
 
     def get_taken_cards_padded_vector(
         self, player: ChujPlayer
     ) -> numpy.typing.NDArray[numpy.int8]:
         if player not in self.player_cards:
-            return numpy.full(ChujConstants.deck_size, 0, dtype=numpy.int8)
-        card_indexes = [card.index for card in self.player_cards[player]]
+            return numpy.zeros(ChujConstants.deck_size, dtype=numpy.int8)
         return numpy.pad(
-            numpy.array(card_indexes, dtype=numpy.int8),
-            (0, ChujConstants.deck_size - len(card_indexes)),
+            numpy.array(
+                [card.index for card in self.player_cards[player]], dtype=numpy.int8
+            ),
+            (0, ChujConstants.deck_size - len(self.player_cards[player])),
         )
