@@ -1,5 +1,3 @@
-from operator import contains
-
 import numpy
 import numpy.typing
 
@@ -9,20 +7,33 @@ from game.chuj_constants import ChujConstants
 
 class ChujHand:
     def __init__(self, cards: list[ChujCard]) -> None:
-        self.cards = cards
+        self.__cards = cards
+        self.__is_empty = False
 
-    def play_card(self, card: ChujCard) -> None:
-        if not contains(self.cards, card):
-            raise ValueError(f"Card {card} is not in hand")
-        self.cards.remove(card)
+    @property
+    def is_empty(self) -> bool:
+        return self.__is_empty
 
-    def get_cards_mask_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
+    @property
+    def available_cards_mask_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
+        if self.__is_empty:
+            raise ValueError("Hand is empty")
         mask = numpy.zeros(ChujConstants.deck_size, dtype=numpy.int8)
-        mask[[card.index - 1 for card in self.cards]] = 1
+        mask[[card.index for card in self.__cards]] = 1
         return mask
 
-    def get_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
+    @property
+    def available_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
+        if self.__is_empty:
+            raise ValueError("Hand is empty")
         return numpy.pad(
-            numpy.array([card.index for card in self.cards], dtype=numpy.int8),
-            (0, ChujConstants.hand_size - len(self.cards)),
+            numpy.array([card.index for card in self.__cards], dtype=numpy.int8),
+            (0, ChujConstants.hand_size - len(self.__cards)),
         )
+
+    def play_card(self, card: ChujCard) -> None:
+        if card not in self.__cards:
+            raise ValueError(f"Card {card} is not in hand")
+        self.__cards.remove(card)
+        if not self.__cards:
+            self.__is_empty = True

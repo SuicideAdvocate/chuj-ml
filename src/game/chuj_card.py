@@ -21,14 +21,34 @@ class ChujCardValue(enum.Enum):
 
 class ChujCard:
     def __init__(self, suite: ChujCardSuite, value: ChujCardValue, index: int):
-        self.suite = suite
-        self.value = value
-        self.index = index
-        _special = {
+        self.__suite = suite
+        self.__value = value
+        self.__index = index
+        special_combinations = {
             (ChujCardSuite.ACORNS, ChujCardValue.UBER): 4,
             (ChujCardSuite.LEAVES, ChujCardValue.UBER): 8,
         }
-        self.points = 1 if suite is ChujCardSuite.HEARTS else _special.get((suite, value), 0)
+        self.__points = (
+            1
+            if suite is ChujCardSuite.HEARTS
+            else special_combinations.get((suite, value), 0)
+        )
+
+    @property
+    def value(self) -> ChujCardValue:
+        return self.__value
+
+    @property
+    def suite(self) -> ChujCardSuite:
+        return self.__suite
+
+    @property
+    def index(self) -> int:
+        return self.__index
+
+    @property
+    def points(self) -> int:
+        return self.__points
 
     def __str__(self) -> str:
-        return f"{self.suite.name} {self.value.name}"
+        return f"{self.__suite.name} {self.__value.name}"

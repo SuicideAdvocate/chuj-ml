@@ -32,33 +32,34 @@ class ChujGym(pettingzoo.AECEnv):
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
-        return gymnasium.spaces.Dict(
-            {
-                "player_score": gymnasium.spaces.Discrete(
-                    ChujConstants.max_points + 1, dtype=numpy.int16
-                ),
-                # "opponent_scores": gymnasium.spaces.MultiDiscrete(
-                #     [ChujGame.max_points + 1] * (ChujPlay.size - 1),
-                #     dtype=numpy.int16
-                # ),
-                # "current_round_played_cards": gymnasium.spaces.MultiDiscrete(
-                #     [ChujDeck.size + 1] * ChujDeck.size,
-                #     dtype=numpy.int16),
-                # "current_play_played_cards": gymnasium.spaces.MultiDiscrete(
-                #     [ChujDeck.size + 1] * ChujPlay.size,
-                #     dtype=numpy.int16),
-                # "curent_round_taken_cards": gymnasium.spaces.MultiDiscrete(
-                #     [ChujDeck.size + 1] * ChujPlay.size,
-                #     dtype=numpy.int16),
-                # "current_hand": gymnasium.spaces.MultiDiscrete(
-                #     [ChujDeck.size + 1] * ChujHand.size,
-                #     dtype=numpy.int16),
-            }
+        return gymnasium.spaces.MultiDiscrete(
+            [ChujConstants.max_points + 1]
+            # {
+            #     "player_score": gymnasium.spaces.Discrete(
+            #         ChujConstants.max_points + 1, dtype=numpy.int16
+            #     ),
+            #     # "opponent_scores": gymnasium.spaces.MultiDiscrete(
+            #     #     [ChujGame.max_points + 1] * (ChujPlay.size - 1),
+            #     #     dtype=numpy.int16
+            #     # ),
+            #     # "current_round_played_cards": gymnasium.spaces.MultiDiscrete(
+            #     #     [ChujDeck.size + 1] * ChujDeck.size,
+            #     #     dtype=numpy.int16),
+            #     # "current_play_played_cards": gymnasium.spaces.MultiDiscrete(
+            #     #     [ChujDeck.size + 1] * ChujPlay.size,
+            #     #     dtype=numpy.int16),
+            #     # "curent_round_taken_cards": gymnasium.spaces.MultiDiscrete(
+            #     #     [ChujDeck.size + 1] * ChujPlay.size,
+            #     #     dtype=numpy.int16),
+            #     # "current_hand": gymnasium.spaces.MultiDiscrete(
+            #     #     [ChujDeck.size + 1] * ChujHand.size,
+            #     #     dtype=numpy.int16),
+            # }
         )
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return gymnasium.spaces.Discrete(ChujConstants.deck_size, start=1)
+        return gymnasium.spaces.Discrete(ChujConstants.deck_size)
 
     def render(self):
         # TODO render the env
@@ -70,9 +71,7 @@ class ChujGym(pettingzoo.AECEnv):
 
     def observe(self, agent):
         player = self.agent_to_player_map[agent]
-        return {
-            "player_score": player.points,
-        }
+        return numpy.array([player.points], dtype=numpy.int16)
         # "opponent_scores": self.game.get_opponent_scores_vector(player),
         # "current_round_played_cards": self.game.rounds[-1].get_played_cards_padded_vector(),
         # "current_play_played_cards": self.game.rounds[-1].plays[-1].get_played_cards_padded_vector(),
@@ -110,11 +109,9 @@ class ChujGym(pettingzoo.AECEnv):
     def step(self, action):
         self._cumulative_rewards[self.agent_selection] = 0
         player = self.agent_to_player_map[self.agent_selection]
-        card_to_play = [card for card in self.game.deck.cards if card.index == action][
-            0
-        ]
-        self.game.play_card(card_to_play, player)
+        card_to_play = [card for card in player.hand.cards if card.index == action][0]
 
+        self.game.play_card(card_to_play, player)
         self.update_action_masks()
 
         self.terminations = {agent: self.game.is_done for agent in self.agents}
@@ -161,15 +158,26 @@ class ChujGym(pettingzoo.AECEnv):
         shifted_agents = self.agents[idx:] + self.agents[:idx]
         self._agent_selector = pettingzoo.utils.AgentSelector(shifted_agents)
 
-    def update_action_masks(self):
-        for agent in self.agents:
-            player = self.agent_to_player_map[agent]
-            mask = player.hand.get_cards_mask_padded_vector()
-            self.infos[agent] = {"action_mask": mask}
+    def update_action_masks(self, agent):
+        current_play_mask = (
+            self.game.rounds[-1].plays[-1].get_action_mask()
+            if self.game.rounds and self.game.rounds[-1].plays
+            else None
+        )
+        player = self.agent_to_player_map[agent]
+        mask = player.hand.get_cards_mask_padded_vector()
+        merged_mask = (
+            mask & current_play_mask if current_play_mask is not None else mask
+        )
+        if any(m == 1 for m in merged_mask):
+            mask = merged_mask
+        if not any(m == 1 for m in mask):
+            raise ValueError(f"No valid actions for agent {agent}")
+        self.infos[agent] = {"action_mask": mask}
 
 
-def env():
-    environment = raw_env()
+def create_env():
+    environment = create_raw_env()
 
     # Recommended wrappers
     # environment = wrappers.OrderEnforcingWrapper(environment)
@@ -179,5 +187,5 @@ def env():
     return environment
 
 
-def raw_env():
+def create_raw_env():
     return ChujGym()

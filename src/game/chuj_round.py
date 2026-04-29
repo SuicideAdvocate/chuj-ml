@@ -32,6 +32,8 @@ class ChujRound:
 
         self.plays[-1].play_card(card, player)
         self.played_cards.append(card)
+        if player not in self.players:
+            self.players.append(player)
 
         if len(self.played_cards) == ChujConstants.deck_size:
             self.is_done = True
@@ -58,7 +60,7 @@ class ChujRound:
                         self.player_points[player] = self.points
 
             for player in self.players:
-                player.points += self.player_points[player]
+                player.points += self.player_points.get(player, 0)
 
     def get_played_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
         return numpy.pad(

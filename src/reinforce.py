@@ -1,58 +1,133 @@
-import pettingzoo.test
+import argparse
+import numpy as np
+from itertools import count
+from collections import deque
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torchrl.modules import MaskedCategorical
 
-from chuj_gym import env
+from chuj_gym import create_env
 
-environment = env()
 
-pettingzoo.test.api_test(env(), num_cycles=1000)
-try:
-    print("Environment passes all checks!")
-except Exception as e:
-    print(f"Environment has issues: {e}")
+parser = argparse.ArgumentParser(description="PyTorch REINFORCE example")
+parser.add_argument(
+    "--gamma",
+    type=float,
+    default=0.99,
+    metavar="G",
+    help="discount factor (default: 0.99)",
+)
+parser.add_argument(
+    "--seed", type=int, default=543, metavar="N", help="random seed (default: 543)"
+)
+parser.add_argument("--render", action="store_true", help="render the environment")
+parser.add_argument(
+    "--log-interval",
+    type=int,
+    default=10,
+    metavar="N",
+    help="interval between training status logs (default: 10)",
+)
+args = parser.parse_args()
 
-# # Training hyperparameters
-# learning_rate = 0.01  # How fast to learn (higher = faster but less stable)
-# n_episodes = 100_000  # Number of hands to practice
-# start_epsilon = 1.0  # Start with 100% random actions
-# epsilon_decay = start_epsilon / (n_episodes / 2)  # Reduce exploration over time
-# final_epsilon = 0.1  # Always keep some exploration
-# discount_factor = 0.9
-#
-# # Create environment and agent
-# env = gym.make("Blackjack-v1", sab=False)
-# env = gym.wrappers.RecordEpisodeStatistics(env, buffer_length=n_episodes)
-#
-# agent = ChujAgent(
-#     env=env,
-#     learning_rate=learning_rate,
-#     initial_epsilon=start_epsilon,
-#     epsilon_decay=epsilon_decay,
-#     final_epsilon=final_epsilon,
-#     discount_factor=discount_factor,
-# )
 
-# for episode in tqdm(range(n_episodes)):
-#     # Start a new hand
-#     obs, info = env.reset()
-#     done = False
-#
-#     # Play one complete hand
-#     while not done:
-#         # Agent chooses action (initially random, gradually more intelligent)
-#         action = agent.get_action(obs)
-#
-#         # Take action and observe result
-#         next_obs, reward, terminated, truncated, info = env.step(action)
-#
-#         if episode % 100 == 0:
-#             print(f"Episode {episode}: Reward={reward}")
-#
-#         # Learn from this experience
-#         agent.update(obs, action, reward, terminated, next_obs)
-#
-#         # Move to next state
-#         done = terminated or truncated
-#         obs = next_obs
-#
-#     # Reduce exploration rate (agent becomes less random over time)
-#     agent.decay_epsilon()
+render_mode = "human" if args.render else None
+env = create_env()
+env.reset(seed=args.seed)
+torch.manual_seed(args.seed)
+
+
+class Policy(nn.Module):
+    def __init__(self, id):
+        super(Policy, self).__init__()
+        self.id = id
+        self.affine1 = nn.Linear(1, 128)
+        self.dropout = nn.Dropout(p=0.6)
+        self.affine2 = nn.Linear(128, 32)
+
+        self.saved_log_probs = []
+        self.rewards = []
+
+    def forward(self, x):
+        x = self.affine1(x)
+        x = self.dropout(x)
+        x = F.relu(x)
+        action_scores = self.affine2(x)
+        return F.softmax(action_scores, dim=1)
+
+
+policies = {
+    "agent_0": Policy("agent_0"),
+    "agent_1": Policy("agent_1"),
+    "agent_2": Policy("agent_2"),
+    "agent_3": Policy("agent_3"),
+}
+
+optimizer = optim.Adam(policies["agent_0"].parameters(), lr=1e-2)
+eps = np.finfo(np.float32).eps.item()
+
+
+def select_action(state, agent_id, action_mask):
+    policy = policies[agent_id]
+    state = torch.from_numpy(state).float().unsqueeze(0)
+    probs = policy(state)
+    m = MaskedCategorical(probs, mask=torch.tensor(action_mask.astype(np.bool)))
+    action = m.sample()
+    policy.saved_log_probs.append(m.log_prob(action))
+    return action.item()
+
+
+def finish_episode(agent):
+    policy = policies[agent]
+    R = 0
+    policy_loss = []
+    returns = deque()
+    for r in policy.rewards[::-1]:
+        R = r + args.gamma * R
+        returns.appendleft(R)
+    returns = torch.tensor(returns)
+    returns = (returns - returns.mean()) / (returns.std() + eps)
+    for log_prob, R in zip(policy.saved_log_probs, returns):
+        policy_loss.append(-log_prob * R)
+    optimizer.zero_grad()
+    policy_loss = torch.cat(policy_loss).sum()
+    policy_loss.backward()
+    optimizer.step()
+    del policy.rewards[:]
+    del policy.saved_log_probs[:]
+
+
+def main():
+    running_reward = 10
+    for i_episode in count(1):
+        env.reset(seed=42)
+        ep_reward = 0
+        while True:
+            for agent in env.agent_iter():
+                obs, reward, terminated, truncated, infos = env.last()
+                action = select_action(obs, agent, infos["action_mask"])
+                # state, reward, terminated, truncated, _ = env.step(action)
+                # if args.render:
+                #     env.render()
+                # policy.rewards.append(reward)
+                # ep_reward += reward
+                # if terminated or truncated:
+                #     break
+
+        # running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
+        # finish_episode()
+        # if i_episode % args.log_interval == 0:
+        #     print(
+        #         f"Episode {i_episode}\tLast reward: {ep_reward:.2f}\tAverage reward: {running_reward:.2f}"
+        #     )
+        # if running_reward > env.spec.reward_threshold:
+        #     print(
+        #         f"Solved! Running reward is now {running_reward} and the last episode runs to {t} time steps!"
+        #     )
+        #     break
+
+
+if __name__ == "__main__":
+    main()
