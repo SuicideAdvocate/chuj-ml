@@ -12,6 +12,7 @@ from game.chuj_card import ChujCard
 
 class ChujRound:
     def __init__(self) -> None:
+        self.__play: 
         self.plays: list[ChujPlay] = []
         self.played_cards: list[ChujCard] = []
         self.players: list[ChujPlayer] = []
