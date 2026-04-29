@@ -3,23 +3,31 @@ from game.chuj_hand import ChujHand
 
 
 class ChujPlayer:
-    def __init__(self, id: str) -> None:
-        self.hand: ChujHand | None = None
-        self.__points = 0
-        self.__id = id
+    def __init__(self, player_id: str) -> None:
+        self.__hand: ChujHand | None = None
+        self.points = 0
+        self.__player_id = player_id
 
     @property
-    def id(self) -> str:
-        return self.__id
+    def hand(self) -> ChujHand:
+        if not self.__hand:
+            raise ValueError("Player has no hand")
+        return self.__hand
+
+    @hand.setter
+    def hand(self, hand: ChujHand) -> None:
+        self.__hand = hand
 
     @property
-    def points(self) -> int:
-        return self.__points
+    def has_hand(self) -> bool:
+        return self.__hand is not None
+
+    @property
+    def player_id(self) -> str:
+        return self.__player_id
 
     def play_card(self, card: ChujCard) -> None:
-        if not self.hand:
-            raise ValueError("Player has no hand")
         self.hand.play_card(card)
 
     def __str__(self):
-        return self.id
+        return self.__player_id

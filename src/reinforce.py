@@ -10,7 +10,6 @@ from torchrl.modules import MaskedCategorical
 
 from chuj_gym import create_env
 
-
 parser = argparse.ArgumentParser(description="PyTorch REINFORCE example")
 parser.add_argument(
     "--gamma",
@@ -102,19 +101,24 @@ def finish_episode(agent):
 def main():
     running_reward = 10
     for i_episode in count(1):
-        env.reset(seed=42)
+        env.reset(seed=42 + i_episode)
+        ep_done = False
         ep_reward = 0
-        while True:
+        while not ep_done:
             for agent in env.agent_iter():
                 obs, reward, terminated, truncated, infos = env.last()
                 action = select_action(obs, agent, infos["action_mask"])
-                # state, reward, terminated, truncated, _ = env.step(action)
+                env.step(action)
                 # if args.render:
                 #     env.render()
                 # policy.rewards.append(reward)
                 # ep_reward += reward
                 # if terminated or truncated:
                 #     break
+                if any(env.terminations.values()) or any(env.truncations.values()):
+                    ep_done = True
+                    print(env.game.round.index)
+                    break
 
         # running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
         # finish_episode()

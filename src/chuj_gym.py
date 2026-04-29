@@ -24,11 +24,12 @@ class ChujGym(pettingzoo.AECEnv):
         ]
         self.agents: list[str] = []
 
-        self.game: ChujGame | None = None
+        self.game: ChujGame = ChujGame(self.possible_agents)
         self.agent_to_player_map: Dict[str, ChujPlayer] = {}
-        self.player_to_agent_map: Dict[ChujPlayer, str] = {}
         self.render_mode = render_mode
-        self._agent_selector: pettingzoo.utils.AgentSelector | None = None
+        self.__agent_selector: pettingzoo.utils.AgentSelector = (
+            pettingzoo.utils.AgentSelector([])
+        )
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
@@ -82,18 +83,10 @@ class ChujGym(pettingzoo.AECEnv):
         if seed is not None:
             numpy.random.seed(seed)
 
-        self.iteration = 0
-
         self.agents = self.possible_agents.copy()
         self.game = ChujGame(self.agents)
         self.agent_to_player_map = {
-            agent: player
-            for player in self.game.players
-            for agent in self.agents
-            if player.id == agent
-        }
-        self.player_to_agent_map = {
-            player: agent for agent, player in self.agent_to_player_map.items()
+            player.player_id: player for player in self.game.players
         }
 
         self.rewards = {agent: 0 for agent in self.agents}
@@ -103,23 +96,28 @@ class ChujGym(pettingzoo.AECEnv):
         self.infos = {agent: {} for agent in self.agents}
 
         self.update_agent_selector()
-        self.agent_selection = self._agent_selector.next()
+        self.agent_selection = self.__agent_selector.next()
         self.update_action_masks()
 
     def step(self, action):
         self._cumulative_rewards[self.agent_selection] = 0
         player = self.agent_to_player_map[self.agent_selection]
-        card_to_play = [card for card in player.hand.cards if card.index == action][0]
+        card_to_play = next(
+            card for card in self.game.deck.cards if card.index == action
+        )
 
         self.game.play_card(card_to_play, player)
-        self.update_action_masks()
 
         self.terminations = {agent: self.game.is_done for agent in self.agents}
 
-        if self._agent_selector.is_last():
+        if self.game.is_done:
+            for player in self.game.players:
+                self.rewards[player.player_id] = (
+                    ChujGym.loss_points if player.points > 100 else 100 - player.points
+                )
+
+        if self.__agent_selector.is_last():
             self.update_agent_selector()
-            for agent in self.agents:
-                self.rewards[agent] = 5
         else:
             self._clear_rewards()
             # if self.game.is_done:
@@ -148,32 +146,29 @@ class ChujGym(pettingzoo.AECEnv):
             #         else:
             #             self.rewards[agent] = 0
 
-        self.agent_selection = self._agent_selector.next()
         self._accumulate_rewards()
 
+        if not self.game.is_done:
+            self.agent_selection = self.__agent_selector.next()
+            self.game.advance()
+            self.update_action_masks()
+
     def update_agent_selector(self):
-        next_player = self.game.get_next_player()
-        first_agent = self.player_to_agent_map[next_player]
+        first_agent = self.game.next_player.player_id
         idx = self.agents.index(first_agent)
         shifted_agents = self.agents[idx:] + self.agents[:idx]
-        self._agent_selector = pettingzoo.utils.AgentSelector(shifted_agents)
+        self.__agent_selector = pettingzoo.utils.AgentSelector(shifted_agents)
 
-    def update_action_masks(self, agent):
-        current_play_mask = (
-            self.game.rounds[-1].plays[-1].get_action_mask()
-            if self.game.rounds and self.game.rounds[-1].plays
-            else None
-        )
-        player = self.agent_to_player_map[agent]
-        mask = player.hand.get_cards_mask_padded_vector()
-        merged_mask = (
-            mask & current_play_mask if current_play_mask is not None else mask
-        )
-        if any(m == 1 for m in merged_mask):
-            mask = merged_mask
-        if not any(m == 1 for m in mask):
-            raise ValueError(f"No valid actions for agent {agent}")
-        self.infos[agent] = {"action_mask": mask}
+    def update_action_masks(self):
+        current_play_mask = self.game.round.play.action_mask_vector
+        for agent in self.agents:
+            mask = self.agent_to_player_map[agent].hand.available_cards_vector
+            merged_mask = mask & current_play_mask
+            if any(m == 1 for m in merged_mask):
+                mask = merged_mask
+            if not any(m == 1 for m in mask):
+                raise ValueError(f"No valid actions for agent {agent}")
+            self.infos[agent] = {"action_mask": mask}
 
 
 def create_env():

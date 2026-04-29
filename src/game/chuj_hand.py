@@ -10,26 +10,20 @@ class ChujHand:
         self.__cards = cards
         self.__is_empty = False
 
+    def cards(self) -> ChujHand:
+        return ChujHand(self.__cards)
+
     @property
     def is_empty(self) -> bool:
         return self.__is_empty
 
     @property
-    def available_cards_mask_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
+    def available_cards_vector(self) -> numpy.typing.NDArray[numpy.int8]:
         if self.__is_empty:
             raise ValueError("Hand is empty")
-        mask = numpy.zeros(ChujConstants.deck_size, dtype=numpy.int8)
-        mask[[card.index for card in self.__cards]] = 1
-        return mask
-
-    @property
-    def available_cards_padded_vector(self) -> numpy.typing.NDArray[numpy.int8]:
-        if self.__is_empty:
-            raise ValueError("Hand is empty")
-        return numpy.pad(
-            numpy.array([card.index for card in self.__cards], dtype=numpy.int8),
-            (0, ChujConstants.hand_size - len(self.__cards)),
-        )
+        cards_vector = numpy.zeros(ChujConstants.deck_size, dtype=numpy.int8)
+        cards_vector[[card.index for card in self.__cards]] = 1
+        return cards_vector.astype(numpy.int8)
 
     def play_card(self, card: ChujCard) -> None:
         if card not in self.__cards:

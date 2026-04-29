@@ -16,7 +16,7 @@ class ChujDeck:
 
     @property
     def cards(self) -> list[ChujCard]:
-        return self.__cards.copy()
+        return self.__cards
 
     @property
     def next_draw(self) -> list[ChujCard]:
