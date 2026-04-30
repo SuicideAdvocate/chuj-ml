@@ -15,7 +15,7 @@ class ChujRound:
         self.__index = index
         self.__is_empty = True
         self.__is_done = False
-        self.__play = ChujPlay()
+        self.__play = ChujPlay(0)
         self.__last_taker: ChujPlayer | None = None
         self.__played_cards: list[ChujCard] = []
         self.__points: int = 0
@@ -45,6 +45,10 @@ class ChujRound:
         if self.__last_taker is None:
             raise ValueError("Last taker is not set")
         return self.__last_taker
+
+    @property
+    def player_points(self) -> typing.Dict[ChujPlayer, int]:
+        return self.__player_points
 
     def play_card(self, card: ChujCard, player: ChujPlayer) -> None:
         if self.is_done:
@@ -91,4 +95,4 @@ class ChujRound:
             raise ValueError("Round is already done")
 
         if self.__play.is_done:
-            self.__play = ChujPlay()
+            self.__play = ChujPlay(self.play.index)

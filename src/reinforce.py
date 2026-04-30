@@ -109,6 +109,7 @@ def main():
                 obs, reward, terminated, truncated, infos = env.last()
                 action = select_action(obs, agent, infos["action_mask"])
                 env.step(action)
+
                 # if args.render:
                 #     env.render()
                 # policy.rewards.append(reward)

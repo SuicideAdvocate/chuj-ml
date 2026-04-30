@@ -7,7 +7,7 @@ from game.chuj_card import ChujCard, ChujCardSuite
 
 
 class ChujPlay:
-    def __init__(self) -> None:
+    def __init__(self, index: int) -> None:
         self.__is_empty = True
         self.__is_done = False
         self.__points = 0
@@ -15,6 +15,11 @@ class ChujPlay:
         self.__taker_card: ChujCard | None = None
         self.__last_player: ChujPlayer | None = None
         self.__played_cards: list[ChujCard] = []
+        self.__index = index
+
+    @property
+    def index(self) -> int:
+        return self.__index
 
     @property
     def last_player(self) -> ChujPlayer:

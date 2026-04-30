@@ -110,41 +110,31 @@ class ChujGym(pettingzoo.AECEnv):
 
         self.terminations = {agent: self.game.is_done for agent in self.agents}
 
-        if self.game.is_done:
-            for player in self.game.players:
-                self.rewards[player.player_id] = (
-                    ChujGym.loss_points if player.points > 100 else 100 - player.points
-                )
-
         if self.__agent_selector.is_last():
             self.update_agent_selector()
+            if self.game.is_done:
+                for player in self.game.players:
+                    self.rewards[player.player_id] = (
+                        ChujGym.loss_points
+                        if player.points > 100
+                        else 100 - player.points
+                    )
+            elif self.game.round.is_done:
+                for player in self.game.players:
+                    sum_of_opponent_points = sum(
+                        points
+                        for other_player, points in self.game.round.player_points.items()
+                        if other_player != player
+                    )
+                    self.rewards[player.player_id] = sum_of_opponent_points
+            elif self.game.round.play.is_done:
+                for player in self.game.players:
+                    if player is self.game.round.play.taker:
+                        self.rewards[player.player_id] = 0
+                    else:
+                        self.rewards[player.player_id] = self.game.round.play.points
         else:
             self._clear_rewards()
-            # if self.game.is_done:
-            #     for player in self.game.players:
-            #         agent = self.player_to_agent_map[player]
-            #         self.rewards[agent] = (
-            #             ChujGym.loss_points
-            #             if player.points > 100
-            #             else 100 - player.points
-            #         )
-            # elif self.game.rounds[-1].is_done:
-            #     # if the latest round is done, we reward players based on the points they have dealt
-            #     for player in self.game.players:
-            #         agent = self.player_to_agent_map[player]
-            #         sum_of_opponent_points = sum(
-            #             points
-            #             for other_player, points in self.game.rounds[-1].player_points
-            #             if other_player != player
-            #         )
-            #         self.rewards[agent] = sum_of_opponent_points
-            # else:
-            #     for player in self.game.players:
-            #         agent = self.player_to_agent_map[player]
-            #         if self.game.rounds[-1].plays[-1].taker is player:
-            #             self.rewards[agent] = -self.game.rounds[-1].plays[-1].points
-            #         else:
-            #             self.rewards[agent] = 0
 
         self._accumulate_rewards()
 
